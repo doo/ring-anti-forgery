@@ -7,15 +7,21 @@
           in POST forms if the handler is wrapped in wrap-anti-forgery."}
   *anti-forgery-token*)
 
-(defn- session-token [request]
-  (or (get-in request [:session "__anti-forgery-token"])
-      (random/base64 60)))
+(defn- session-token [request token-gen-fn log-fn]
+  (or (get-in request [:session :__anti-forgery-token])
+      (token-gen-fn)))
 
-(defn- assoc-session-token [response request token]
-  (let [old-token (get-in request [:session "__anti-forgery-token"])]
+(defn- assoc-in-session
+  [response request k v]
+  (if (contains? response :session)
+    (update-in response [:session] merge {k v})
+    (assoc-in response [:session] (merge (:session request) {k v}))))
+
+(defn- assoc-session-token [response request token log-fn]
+  (let [old-token (get-in request [:session :__anti-forgery-token])]
     (if (= old-token token)
       response
-      (assoc-in response [:session "__anti-forgery-token"] token))))
+      (assoc-in-session response request :__anti-forgery-token token))))
 
 (defn- form-params [request]
   (merge (:form-params request)
@@ -27,9 +33,9 @@
                    (map bit-xor (.getBytes a) (.getBytes b))))
     false))
 
-(defn- valid-request? [request]
+(defn- valid-request? [request token-gen-fn log-fn]
   (let [param-token  (-> request form-params (get "__anti-forgery-token"))
-        stored-token (session-token request)]
+        stored-token session-token request token-gen-fn log-fn]
     (and param-token
          stored-token
          (secure-eql? param-token stored-token))))
@@ -42,15 +48,21 @@
    :headers {"Content-Type" "text/html"}
    :body body})
 
+(defn- default-token-generation-fn [] (random/base64 60))
+
 (defn wrap-anti-forgery
   "Middleware that prevents CSRF attacks. Any POST request to this handler must
   contain a '__anti-forgery-token' parameter equal to the last value of the
   *anti-request-forgery* var. If the token is missing or incorrect, an access-
   denied response is returned."
-  [handler]
-  (fn [request]
-    (binding [*anti-forgery-token* (session-token request)]
-      (if (and (post-request? request) (not (valid-request? request)))
-        (access-denied "<h1>Invalid anti-forgery token</h1>")
-        (if-let [response (handler request)]
-          (assoc-session-token response request *anti-forgery-token*))))))
+  ([handler]
+     (wrap-anti-forgery handler #{} default-token-generation-fn println))
+  ([handler excluded-routes token-gen-fn log-fn]
+     (fn [request]
+       (if (contains? excluded-routes (:uri request))
+         (handler request)
+         (binding [*anti-forgery-token* (session-token request token-gen-fn log-fn)]
+           (if (and (post-request? request) (not (valid-request? request token-gen-fn log-fn)))
+             (access-denied "<h1>Invalid anti-forgery token</h1>")
+             (if-let [response (handler request)]
+               (assoc-session-token response request *anti-forgery-token* log-fn))))))))
