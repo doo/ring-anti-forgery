@@ -35,7 +35,7 @@
 
 (defn- valid-request? [request token-gen-fn log-fn]
   (let [param-token  (-> request form-params (get "__anti-forgery-token"))
-        stored-token session-token request token-gen-fn log-fn]
+        stored-token (session-token request token-gen-fn log-fn)]
     (and param-token
          stored-token
          (secure-eql? param-token stored-token))))

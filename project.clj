@@ -6,6 +6,7 @@
   :dependencies [[org.clojure/clojure "1.2.1"]
                  [crypto-random "1.1.0"]
                  [hiccup "1.0.0"]]
-  :dev-dependencies [[ring-mock "0.1.1"]]
+  :dev-dependencies [[ring-mock "0.1.1"]
+                     [lein-clojars "0.7.0"]]
   :profiles
   {:dev {:dependencies [[ring-mock "0.1.1"]]}})
