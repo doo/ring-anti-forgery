@@ -11,17 +11,17 @@
       403 (-> (request :post "/")
               (assoc :form-params {"__anti-forgery-token" "foo"}))
       403 (-> (request :post "/")
-              (assoc :session {"__anti-forgery-token" "foo"})
+              (assoc :session {:__anti-forgery-token "foo"})
               (assoc :form-params {"__anti-forgery-token" "bar"}))
       200 (-> (request :post "/")
-              (assoc :session {"__anti-forgery-token" "foo"})
+              (assoc :session {:__anti-forgery-token "foo"})
               (assoc :form-params {"__anti-forgery-token" "foo"})))))
 
 (deftest multipart-form-test
   (let [response {:status 200, :headers {}, :body "Foo"}
         handler  (wrap-anti-forgery (constantly response))]
     (is (= (-> (request :post "/")
-               (assoc :session {"__anti-forgery-token" "foo"})
+               (assoc :session {:__anti-forgery-token "foo"})
                (assoc :multipart-params {"__anti-forgery-token" "foo"})
                handler
                :status)
@@ -31,11 +31,11 @@
   (let [response {:status 200, :headers {}, :body "Foo"}
         handler  (wrap-anti-forgery (constantly response))]
     (is (contains? (:session (handler (request :get "/")))
-                   "__anti-forgery-token"))
+                   :__anti-forgery-token))
     (is (not= (get-in (handler (request :get "/"))
-                      [:session "__anti-forgery-token"])
+                      [:session :__anti-forgery-token])
               (get-in (handler (request :get "/"))
-                      [:session "__anti-forgery-token"])))))
+                      [:session :__anti-forgery-token])))))
 
 (deftest token-binding-test
   (letfn [(handler [request]
@@ -43,7 +43,7 @@
              :headers {}
              :body *anti-forgery-token*})]
     (let [response ((wrap-anti-forgery handler) (request :get "/"))]
-      (is (= (get-in response [:session "__anti-forgery-token"])
+      (is (= (get-in response [:session :__anti-forgery-token])
              (:body response))))))
 
 (deftest nil-response-test
@@ -57,7 +57,7 @@
              :headers {}
              :body *anti-forgery-token*})]
     (let [response ((wrap-anti-forgery handler) (request :get "/"))
-          token    (get-in response [:session "__anti-forgery-token"])]
+          token    (get-in response [:session :__anti-forgery-token])]
       (is (not (.contains token "\n"))))))
 
 (deftest single-token-per-session-test
@@ -65,5 +65,5 @@
         handler  (wrap-anti-forgery (constantly expected))
         actual   (handler
                   (-> (request :get "/")
-                      (assoc-in [:session "__anti-forgery-token"] "foo")))]
+                      (assoc-in [:session :__anti-forgery-token] "foo")))]
     (is (= actual expected))))
