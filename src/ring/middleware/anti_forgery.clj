@@ -50,19 +50,31 @@
 
 (defn- default-token-generation-fn [] (random/base64 60))
 
+(defn- default-error-callback
+  [request]
+  (access-denied "<h1>Invalid anti-forgery token</h1>"))
+
 (defn wrap-anti-forgery
   "Middleware that prevents CSRF attacks. Any POST request to this handler must
   contain a '__anti-forgery-token' parameter equal to the last value of the
   *anti-request-forgery* var. If the token is missing or incorrect, an access-
-  denied response is returned."
+  denied response is returned.
+  The attack-callback is a function that is called when a post request does not
+  include the expected security token. The function is passed the respective
+  request and is expected to return an appropriate response."
   ([handler]
-     (wrap-anti-forgery handler #{} default-token-generation-fn println))
-  ([handler excluded-routes token-gen-fn log-fn]
+     (wrap-anti-forgery
+      handler
+      #{}
+      default-token-generation-fn
+      default-error-callback
+      println))
+  ([handler excluded-routes token-gen-fn attack-callback log-fn]
      (fn [request]
        (if (contains? excluded-routes (:uri request))
          (handler request)
          (binding [*anti-forgery-token* (session-token request token-gen-fn log-fn)]
            (if (and (post-request? request) (not (valid-request? request token-gen-fn log-fn)))
-             (access-denied "<h1>Invalid anti-forgery token</h1>")
+             (attack-callback request)
              (if-let [response (handler request)]
                (assoc-session-token response request *anti-forgery-token* log-fn))))))))
