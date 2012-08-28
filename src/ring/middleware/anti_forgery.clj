@@ -27,6 +27,10 @@
   (merge (:form-params request)
          (:multipart-params request)))
 
+(defn- request-token [request]
+  (or (-> request form-params (get "__anti-forgery-token"))
+      (-> request :headers (get "__anti-forgery-token"))))
+
 (defn- secure-eql? [^String a ^String b]
   (if (and a b (= (.length a) (.length b)))
     (zero? (reduce bit-or
@@ -34,11 +38,11 @@
     false))
 
 (defn- valid-request? [request token-gen-fn log-fn]
-  (let [param-token  (-> request form-params (get "__anti-forgery-token"))
+  (let [request-token (request-token request)
         stored-token (session-token request token-gen-fn log-fn)]
-    (and param-token
+    (and request-token
          stored-token
-         (secure-eql? param-token stored-token))))
+         (secure-eql? request-token stored-token))))
 
 (defn- post-request? [request]
   (= :post (:request-method request)))
