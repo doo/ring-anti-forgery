@@ -29,7 +29,7 @@
 
 (defn- request-token [request]
   (or (-> request form-params (get "__anti-forgery-token"))
-      (-> request :headers (get "__anti-forgery-token"))))
+      (-> request :headers (get "anti-forgery-token"))))
 
 (defn- secure-eql? [^String a ^String b]
   (if (and a b (= (.length a) (.length b)))
